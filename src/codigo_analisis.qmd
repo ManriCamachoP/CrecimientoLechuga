@@ -1,0 +1,407 @@
+---
+title: "Código de Análisis"
+author:
+  name: 
+    - Manrique Camacho Pochet
+    - Amanda Cedeño Guzmán
+    - Iván Daniel Rodríguez Cruz
+    - Marie Sofia Villalobos Martínez
+institute: "Estudiantes de Estadística , Universidad de Costa Rica"
+lang: es  
+date: "2023-07-22" 
+format: 
+  html:
+    toc: true
+    toc-depth: 4
+    toc-title: "Tabla de contenidos"
+    toc_fload: true
+    warning: false
+    message: false
+    df-print: paged
+editor: visual
+---
+
+# Preliminar
+
+## Librerías
+
+```{r}
+# Librerías: 
+library(tidyverse) 
+library(stats) 
+library(ggthemes) 
+library(ggdist) 
+library(car) 
+library(tseries) 
+library(lmtest) 
+library(ggResidpanel) 
+library(kableExtra) 
+```
+
+## Lectura y limpieza de la base de datos
+
+```{r}
+# Base de datos (lectura y limpieza): 
+base = read_csv("data/data_semillas.csv")
+
+base = base %>% 
+  mutate_at(c("id", 
+              "cantidad_semillas", 
+              "longitud_prom_raiz", 
+              "indice_germinacion"), as.numeric) %>% 
+  mutate_at(c("combinacion_tratamiento", 
+              "tipo_bolsa", 
+              "temperatura", 
+              "pH"), as.factor)
+
+# Visualización de la base de datos:
+base %>% head
+
+# Adjuntar la base de datos: 
+base %>% attach()
+```
+
+## Modelo de suma nula
+
+Se establece en el entorno de R el comando que hace posible trabajar con modelos de suma nula.
+
+```{r}
+options(contrasts = c("contr.sum", "contr.poly"))
+```
+
+------------------------------------------------------------------------
+
+# Análisis previos (exploración y verificación de supuestos)
+
+## Variable respuesta
+
+```{r}
+base %>% select(longitud_prom_raiz) %>% summary()
+```
+
+## Modelo inicial (ajustar)
+
+```{r}
+# Modelo inicial:
+mod1 = lm(formula = longitud_prom_raiz ~ pH*temperatura + temperatura*indice_germinacion + pH*indice_germinacion, data = base)
+
+# ANOVA de este modelo:
+mod1 %>% anova() %>% round(4)
+```
+
+------------------------------------------------------------------------
+
+# Modelo final
+
+Se suprime el efecto `pH:indice_germinacion` por no ser significativo.
+
+```{r}
+# Modelo final:
+mod2 = lm(formula = longitud_prom_raiz ~ pH*temperatura + temperatura*indice_germinacion, data = base)
+
+# ANOVA de este modelo:
+mod2 %>% anova() %>% round(4)
+```
+
+## Verificación de los supuestos del modelo final
+
+### Normalidad
+
+```{r}
+# Análisis formal: 
+mod2 %>% .$res %>% shapiro.test() # Prueba de Shapiro-Wilks.
+
+# Análisis gráfico:
+mod2 %>% plot(2) # Gráfico de QQ-plot.
+```
+
+### Homocedasticidad
+
+```{r}
+# Análisis formal:
+mod2 %>% bptest() # Prueba de Breusch-Pagan.
+
+# Análisis gráfico: 
+mod2 %>% plot(1) # Gráfico de residuos contra predichos. 
+```
+
+## Efecto de interación ph-temperatura
+
+```{r}
+# Efecto de interacción entre el pH y la temperatura. 
+## Se fijan los grados de temperatura y se analizan los contrastes de pH.
+
+graf_intera1 = base %>% 
+  ggplot(aes(x = temperatura,
+             y = longitud_prom_raiz,
+             col = pH,
+             group = pH)) +
+  stat_summary(aes(linetype = pH),
+               fun.y = "mean", 
+               geom = "line", 
+               size = 1) +
+  labs(
+    title = "Promedios de las longitudes de las raíces de las semillas\nde lechuga Great Lake 118 con un 98% de germinación",
+    subtitle = "Combinaciones de pH y temperatura",
+    x = "Grados de temperatura",
+    y = "Longitud promedio de las raíces",
+    col = "Niveles de pH",
+    caption = "Elaboración propia.",
+    linetype = "Niveles de pH"
+  ) +
+  theme_minimal() +
+  scale_color_economist()
+  
+graf_intera1 
+```
+
+## Covariable
+
+### Correlación entre respuesta y covariable
+
+```{r}
+cor(x = base$longitud_prom_raiz, y = base$indice_germinacion, method = "pearson")
+```
+
+### Relación lineal entre covariable-respuesta dentro de cada combinación de tratamiento
+
+```{r}
+# Linealidad entre covariable y respuesta: 
+scatterplot(longitud_prom_raiz ~ indice_germinacion, 
+            xlab = "Índice de germinación", 
+            ylab = "Respuesta (en mm)")
+```
+
+### Coeficientes de correlación dentro cada uno de los tratamientos.
+
+```{r}
+base %>%
+  group_by(temperatura, pH) %>%
+  summarise(correlacion = cor(longitud_prom_raiz, indice_germinacion), .groups = "drop")
+```
+
+```{r}
+# Dentro de cada combinación de tratamiento:
+base %>% 
+  ggplot(aes(x = indice_germinacion, 
+             y = longitud_prom_raiz, 
+             col = combinacion_tratamiento)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = TRUE) +
+  facet_grid(pH ~ temperatura, scales = "free") + # Segmentar por combinación de tratamiento.
+  labs(x = "Índice de germinación", 
+       y = "Respuesta (en mm)",
+       title = "Longitud promedio de las raíces de las semillas de lechuga\ncontra índice de germinación",
+       subtitle = "Según tipo de nivel de pH y grados de temperatura",
+       caption = "Elaboración propia",
+       col = "Combinación de\ntratamiento") +
+  theme_bw() +
+  scale_color_economist()
+```
+
+------------------------------------------------------------------------
+
+# Análisis final
+
+En este apartado se realiza el análisis de los contrastes.
+
+## Media general de la respuesta
+
+```{r}
+m_general = mean(base$longitud_prom_raiz) ; m_general %>% round(4)
+```
+
+## Promedios observados
+
+```{r}
+prom_obs = tapply(X = longitud_prom_raiz, INDEX = list(pH, temperatura), FUN = mean) ; prom_obs
+```
+
+## Efectos de interacción
+
+```{r}
+# Se usa aov() para utilizar model.tables():
+mod2 = aov(formula = longitud_prom_raiz ~ pH + temperatura + pH*temperatura + indice_germinacion + temperatura*indice_germinacion, data = base)
+
+# Efectos de interacción:
+ef_int = model.tables(mod2, type = "effects") ; ef_int$tables[4]
+```
+
+## Varianzas por tratamiento
+
+```{r}
+v = tapply(X = longitud_prom_raiz, INDEX = list(pH, temperatura), FUN = var) ; v %>% round(3)
+```
+
+## Variabilidad (gráfico)
+
+```{r}
+box_graf1 = base %>% 
+  ggplot(aes(x = combinacion_tratamiento,
+             y = longitud_prom_raiz, 
+             fill = combinacion_tratamiento)) +
+  geom_boxplot(width = .25, 
+               outlier.shape = NA,
+               alpha = 0.6) +
+  geom_point(aes(color = combinacion_tratamiento),
+             position = position_jitter(w = .15), 
+             size = 1.5,
+             alpha = 0.6,
+             show.legend = F) +
+  stat_halfeye(adjust = 0.5,
+               justification = -0.2,
+               .width = 0,
+               point_colour = NA,
+               alpha = .6) +
+  geom_hline(yintercept = mean(longitud_prom_raiz),
+             linetype = "dashed") +
+  labs(
+    title = "Efecto del pH y la temperatura en las longitudes promedio de las raíces\nde las semillas de lechuga Great Lakes 118",
+    subtitle = "La línea punteada corresponde a la media de la respuesta",
+    x = "Combinación de tratamiento",
+    y = "Longitud promedio de las raíces (en mm)", 
+    fill = "Tipo de combinación\nde tratamiento",
+    caption = "Elaboración propia"
+  ) +
+  theme_minimal() +
+  scale_fill_economist() +
+  scale_color_economist()
+
+box_graf1
+```
+
+## Varianza del error
+
+```{r}
+# CMREs sin la covariable:
+mean(v)
+
+# CMREs con la covariable:
+CMRes = anova(mod2)[6,3] ; CMRes
+```
+
+## Coeficientes del modelo
+
+```{r}
+coef_mod = mod2 %>% coef ; coef_mod
+```
+
+------------------------------------------------------------------------
+
+## Comparaciones múltiples
+
+Se fija la temperatura y se analiza los contrastes de pH.
+
+```{r}
+# Ver la configuración en cada factor: 
+contrasts(pH) ; contrasts(temperatura)
+```
+
+### Matriz de estructura
+
+```{r}
+mod2 = lm(formula = longitud_prom_raiz ~ pH + temperatura + pH*temperatura + indice_germinacion + temperatura*indice_germinacion, data = base)
+
+# Matriz de estructura solicitada: 
+# model.matrix(mod2)
+
+# Vectores de contrastes:
+## Se dea únicamente el vector de cada contraste (resumir): 
+mes = as.data.frame(model.matrix(mod2)) ; mes[c(1,6,11,16,21,26,31,36,41),] # No se ha fijado por indice de germinación de 50. 
+```
+
+### Vectores de contraste
+
+```{r}
+# En este apartado se tomó el índice de germinación 50 para todos.
+# Fijando la temperatura
+# Temp: Frío
+ac_fr = c(1,1,0,1,0,50,1,0,0,0,50,0)
+ne_fr = c(1,0,1,1,0,50,0,1,0,0,50,0)
+al_fr = c(1,-1,-1,1,0,50,-1,-1,0,0,50,0)
+
+# Temp: Ambiente
+ac_am = c(1,1,0,0,1,50,0,0,1,0,0,50)
+ne_am = c(1,0,1,0,1,50,0,0,0,1,0,50)
+al_am = c(1,-1,-1,0,1,50,0,0,-1,-1,0,50)
+
+# Temp: Caliente
+ac_ca = c(1,1,0,-1,-1,50,-1,0,-1,0,-50,-50)
+ne_ca = c(1,0,1,-1,-1,50,0,-1,0,-1,-50,-50)
+al_ca = c(1,-1,-1,-1,-1,50,1,1,1,1,-50,-50)
+```
+
+### Pares
+
+```{r}
+## Fijando temp y cambiando pH
+# Temp: frio
+m11_m21 = ac_fr - ne_fr
+m11_m31 = ac_fr - al_fr
+m21_m31 = ne_fr - al_fr
+
+# # Temp: ambiente
+m12_m22 = ac_am - ne_am
+m12_m22 = ac_am - al_am
+m22_m32 = ne_am - al_am
+
+# # Temp: caliente
+m13_m23 = ac_ca - ne_ca
+m13_m33 = ne_ca - al_ca
+m23_m33 = ne_ca - al_ca
+```
+
+### Estadísticos
+
+```{r}
+# Vector h:
+h1 = cbind(m11_m21, m11_m31, m21_m31, m12_m22, m12_m22, m22_m32, m13_m23, m13_m33, m23_m33)
+
+colnames(h1) = c("ac_fr - ne_fr", "ac_fr - al_fr", "ne_fr - al_fr",
+                 "ac_am - ne_am", "ac_am - al_am", "ne_am - al_am",
+                 "ac_ca - ne_ca", "ne_ca - al_ca", "ne_ca - al_ca")
+```
+
+### Coeficientes estimados
+
+```{r}
+# Coeficientes del modelo:
+coef_mod = coef(mod2)
+
+# Coeficientes estimados: 
+L1 = crossprod(h1, coef_mod) ; L1
+nombres_contrastes1 = c("ac_fr - ne_fr", "ac_fr - al_fr", "ne_fr - al_fr",
+                       "ac_am - ne_am", "ac_am - al_am", "ne_am - al_am",
+                       "ac_ca - ne_ca", "ne_ca - al_ca", "ne_ca - al_ca")
+
+df_L1 = data.frame(contraste = as.factor(nombres_contrastes1), 
+                  L_estimados = round(as.numeric(L1),3))
+```
+
+### Probabilidades asociadas
+
+```{r}
+# Errores estándar:
+ee1 = sqrt(diag(t(h1)%*%vcov(mod2)%*%h1))
+
+# t tabular:
+t1 = L1 / ee1 ; t1 %>% round(3)
+```
+
+```{r}
+p1 = pt(t1, anova(mod2)[6,1], lower.tail = T) ; p1 %>% round(3) #< 0.01666667 # 0.05/3 Bonferron
+rownames(p1) = nombres_contrastes1
+```
+
+### Cotas inferiores
+
+```{r}
+# Valores de t:
+t11 = qt(p = 1-0.05/4, df = anova(mod2)[6,1])
+
+# Cotas inferiores:
+lim1 = L1[-c(1,2,3,8,9)] + t11 * ee1[-c(1,2,3,8,9)] # Unicamente los contrastes significativos. 
+cotas1 = cbind(lim1)
+
+rownames(cotas1) = c("ac_am - ne_am", "ac_am - al_am", "ne_am - al_am", "ac_ca - ne_ca") ; cotas1 %>% round(3)
+```
