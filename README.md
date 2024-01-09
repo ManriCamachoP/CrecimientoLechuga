@@ -13,14 +13,14 @@ Este proyecto, parte del curso Principios de Diseños Experimentales (XS-3150) e
 
 | Nombre del Estudiante       | Correo Electrónico                |
 |-----------------------------|-----------------------------------|
-| Manrique Camacho P.         | manrique.camacho@ucr.ac.cr        |
-| Amanda Cedeño Guzmán        | amanda.cedeno@ucr.ac.cr           |
-| Iván Daniel Rodríguez Cruz   | ivan.rodriguez@ucr.ac.cr          |
-| Marie Sofia Villalobos Martínez | marie.villalobos@ucr.ac.cr      |
+| [Manrique Camacho P.](https://www.linkedin.com/in/manriquecamachop/)         | manrique.camacho@ucr.ac.cr        |
+| Amanda Cedeño G.       | amanda.cedeno@ucr.ac.cr           |
+| [Iván Daniel Rodríguez C.](https://www.linkedin.com/in/iv%C3%A1n-daniel-rodr%C3%ADguez-cruz-2471a325a/)   | ivan.rodriguez@ucr.ac.cr          |
+| Marie Sofia Villalobos M. | marie.villalobos@ucr.ac.cr      |
 
 **Docente Supervisora:**
 - PhD Shirley Rojas Salazar (shirley.rojas@ucr.ac.cr)
 
 ## Licencia
 
-Este proyecto se encuentra bajo License: MIT. Consulte el archivo LICENSE para más detalles.
+Este proyecto se encuentra bajo [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT). Consulté el archivo LICENSE para más detalles.
